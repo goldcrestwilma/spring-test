@@ -10,11 +10,14 @@ public class Shop {
 
     private final int shopId;
     private final int size;
+    private final int delay;
+
 
     @Builder
-    public Shop(int shopId, int size) {
+    public Shop(int shopId, int size, int delay) {
         this.shopId = shopId;
         this.size = size;
+        this.delay = delay;
     }
 
     public boolean hasSize() {

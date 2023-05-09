@@ -1,6 +1,7 @@
 package org.example;
 
 import lombok.extern.slf4j.Slf4j;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -11,14 +12,16 @@ import java.time.Duration;
 class TransformOperatorTest {
 
     @Test
+    @DisplayName("flatMap() operator")
     void flatMapOperator() {
         Shop shop = Flux.just(
-                Shop.builder().shopId(1).size(0).build(), // 800ms
-                Shop.builder().shopId(2).size(5).build(), // 200ms
-                Shop.builder().shopId(3).size(5).build(), // 100ms
-                Shop.builder().shopId(4).size(0).build() // 0ms
+                Shop.builder().shopId(1).size(0).delay(800).build(),
+                Shop.builder().shopId(2).size(5).delay(200).build(),
+                Shop.builder().shopId(3).size(5).delay(100).build(),
+                Shop.builder().shopId(4).size(0).delay(0).build()
             )
-            .flatMap(this::doSomethingAsync) // delay 발생시킴
+            .log()
+            .flatMap(this::doSomethingAsync, 2, 1)
             .takeUntil(Shop::hasSize)
             .doOnNext(n -> log.info("Done {}", n))
             .blockLast();
@@ -27,12 +30,13 @@ class TransformOperatorTest {
     }
 
     @Test
+    @DisplayName("flatMapSequential() operator")
     void flatMapSequentialOperator() {
         Shop shop = Flux.just(
-                Shop.builder().shopId(1).size(0).build(),
-                Shop.builder().shopId(2).size(5).build(),
-                Shop.builder().shopId(3).size(5).build(),
-                Shop.builder().shopId(4).size(0).build()
+                Shop.builder().shopId(1).size(0).delay(800).build(),
+                Shop.builder().shopId(2).size(5).delay(200).build(),
+                Shop.builder().shopId(3).size(5).delay(100).build(),
+                Shop.builder().shopId(4).size(0).delay(0).build()
             )
             .flatMapSequential(this::doSomethingAsync)
             .takeUntil(Shop::hasSize)
@@ -43,13 +47,15 @@ class TransformOperatorTest {
     }
 
     @Test
+    @DisplayName("concatMap() operator")
     void concatMapOperator() {
         Shop shop = Flux.just(
-                Shop.builder().shopId(1).size(0).build(),
-                Shop.builder().shopId(2).size(5).build(),
-                Shop.builder().shopId(3).size(5).build(),
-                Shop.builder().shopId(4).size(0).build()
+                Shop.builder().shopId(1).size(0).delay(800).build(),
+                Shop.builder().shopId(2).size(5).delay(200).build(),
+                Shop.builder().shopId(3).size(5).delay(100).build(),
+                Shop.builder().shopId(4).size(0).delay(0).build()
             )
+            .log()
             .concatMap(this::doSomethingAsync)
             .takeUntil(Shop::hasSize)
             .doOnNext(n -> log.info("Done {}", n))
@@ -59,26 +65,8 @@ class TransformOperatorTest {
     }
 
     private Mono<Shop> doSomethingAsync(Shop shop) {
-        Mono<Shop> mono = Mono.just(shop)
-            .doOnNext(element -> log.info("Executing {}", element));
-
-        switch (shop.getShopId()) {
-            case 1:
-                return mono.delayElement(Duration.ofMillis(800));
-            case 2:
-                return mono.delayElement(Duration.ofMillis(200));
-            case 3:
-                return mono.delayElement(Duration.ofMillis(100));
-            default:
-                return mono;
-        }
-    }
-
-    @Test
-    void concatMapPrefetch() {
-        Flux.range(1, 10)
-            .concatMap(i -> Flux.just(i).delayElements(Duration.ofMillis(100)), 2)
-            .doOnNext(n -> log.info("Executing {}", n))
-            .subscribe();
+        return Mono.just(shop)
+            .doOnNext(element -> log.info("Executing {}", element))
+            .delayElement(Duration.ofMillis(shop.getDelay()));
     }
 }
